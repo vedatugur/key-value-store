@@ -77,3 +77,6 @@ Please feel free to contribute to this project. Pull requests are welcome.
 
 ## License
 This project is licensed under the GPL-3.0 License - see the LICENSE.md file for details.
+
+## UI Preview
+![UI Preview](images/ui-preview.png)
