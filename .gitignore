@@ -1,0 +1,12 @@
+# Dependencies
+/node_modules
+
+# Files created by development tools
+/.vscode
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Other temporary files
+/data/*

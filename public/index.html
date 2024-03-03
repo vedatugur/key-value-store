@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>LSM Tree & SSTable Demo</title>
+	<style>
+			body {
+					font-family: Arial, sans-serif;
+			}
+			.container {
+					display: flex;
+					gap: 15px;
+			}
+			.input-form {
+					display: flex;
+					flex-wrap: wrap;
+					gap: 5px;
+			}
+			.input-form input {
+					max-width: 100px;
+			}
+			.box {
+					padding: 5px 10px;
+					border: 1px solid #ebebeb;
+					border-radius: 5px;
+					max-width: 250px;
+					overflow-x: auto;
+					max-height: 400px;
+					overflow-y: auto;
+			}
+			.values-display div {
+					text-wrap: nowrap;
+					padding-bottom: 4px;
+					font-size: 12px;
+					line-height: 10px;
+			}
+			.info-section {
+					margin-top: 20px;
+					padding: 10px;
+					border: 1px solid #ebebeb;
+					border-radius: 5px;
+			}
+			.info-section h2 {
+					font-size: 16px;
+					margin-bottom: 10px;
+			}
+			.info-section ul {
+					list-style-type: none;
+					padding: 0;
+			}
+			.info-section li {
+					margin-bottom: 5px;
+			}
+			.info-section strong {
+					font-weight: bold;
+			}
+			h2 {
+					font-size: 16px;
+			}
+			h3 {
+					font-size: 14px;
+			}
+			button, input[type="text"] {
+					padding: 5px;
+			}
+	</style>
+</head>
+<body>
+	<div class="container">
+			<div>
+					<h2>Set Key-Value Pair</h2>
+					<form id="setForm" class="input-form">
+							<input type="text" id="key" placeholder="Key" required>
+							<input type="text" id="value" placeholder="Value" required>
+							<button type="submit">Set</button>
+					</form>
+
+					<h2>Set A Random Key-Value Pair</h2>
+					<button onclick="setRandomValue()">Set A Random Value</button>
+
+					<h2>Set Multiple Key-Value Pairs</h2>
+					<button onclick="setMultipleValues()">Set 30 Random Values</button>
+
+					<h2>Clear All Records</h2>
+					<button onclick="clearAllRecords()">Clear All</button>
+			</div>
+			<div>
+				<div class="container" style="gap: 10px;">
+					<div class="box">
+						<h2>Current Values <span id="totalCurrentValues"></span></h2>
+						<div id="values" class="values-display"></div>
+					</div>
+					<div class="box">
+							<h2>Memory Values <span id="totalMemoryValues"></span></h2>
+							<div id="memValues" class="values-display"></div>
+					</div>
+				</div>
+				<div>
+					<h2>SSTables Details</h2>
+					<div id="sstableDetails" class="container"></div>
+				</div>
+			</div>
+	</div>
+	<div class="info-section">
+			<h2>How It Works</h2>
+			<ul>
+					<li><strong>Set Key-Value Pair:</strong> Allows adding a new key-value pair to the memory. If the memory reaches its maximum size (30 records), a flush operation is triggered.</li>
+					<li><strong>Flush:</strong> Moves all key-value pairs from memory to disk in an SSTable. This operation occurs automatically when the memory table is full or can be triggered manually.</li>
+					<li><strong>Compact:</strong> Merges multiple SSTables on the disk into a single SSTable. This operation helps in reducing disk space usage and improving read efficiency. It is automatically triggered when the number of SSTables reaches a specific threshold (e.g., 4 SSTables).</li>
+					<li><strong>Clear All Records:</strong> Clears all key-value pairs from both memory and disk, resetting the system.</li>
+			</ul>
+	</div>
+	<script>
+			document.getElementById('setForm').onsubmit = async function(event) {
+					event.preventDefault();
+					const key = document.getElementById('key').value;
+					const value = document.getElementById('value').value;
+					await fetch(`/set?key=${encodeURIComponent(key)}&value=${encodeURIComponent(value)}`, { method: 'GET' });
+					window.location.reload(); 
+			};
+
+			async function setMultipleValues() {
+					for (let i = 0; i < 30; i++) {
+							const timestamp = Date.now();
+							const random = Math.floor(Math.random() * 1000);
+							const key = `Key_${timestamp}_${random}_${i}`;
+							const value = `Value_${Math.random()}`;
+							await fetch(`/set?key=${encodeURIComponent(key)}&value=${encodeURIComponent(value)}`, { method: 'GET' });
+					}
+					window.location.reload(); 
+			}
+
+			async function clearAllRecords() {
+					const response = await fetch('/clear-all', { method: 'DELETE' });
+					const result = await response.text();
+					alert(result); // İşlem sonucunu göster
+					window.location.reload(); 
+			}
+
+			async function setRandomValue() {
+					const timestamp = Date.now();
+					const randomKey = `RandomKey_${timestamp}`;
+					const randomValue = `RandomValue_${Math.random()}`;
+					await fetch(`/set?key=${encodeURIComponent(randomKey)}&value=${encodeURIComponent(randomValue)}`, { method: 'GET' });
+					window.location.reload(); // Refresh the page
+			}
+
+			async function fetchSSTableDetails() {
+					const response = await fetch('/sstable-details');
+					const sstableDetails = await response.json();
+					const sstableDetailsContainer = document.getElementById('sstableDetails');
+
+					// SSTable'lar mevcut değilse veya hiç kayıt yoksa bir mesaj göster
+					if (sstableDetails.length === 0 || sstableDetails.every(sstable => sstable.entries.length === 0)) {
+							sstableDetailsContainer.innerHTML = `<div class="box"><p>No SSTables or no records in SSTables.</p></div>`;
+					} else {
+							sstableDetailsContainer.innerHTML = sstableDetails.map(sstable => 
+									`<div class="box">
+											<h3>${sstable.name} (${sstable.entries.length} records)</h3>
+											<div class="values-display">
+													${sstable.entries.map(entry => `<div>${entry.key}: ${entry.value}</div>`).join('')}
+											</div>
+									</div>`
+							).join('');
+					}
+			}
+
+			window.onload = async function() {
+				// Fetch and display all types of values, and update total records
+				const endpoints = ['/values', '/mem-values'];
+				const containers = ['values', 'memValues'];
+				const totals = ['totalCurrentValues', 'totalMemoryValues'];
+
+				endpoints.forEach(async (endpoint, index) => {
+						const response = await fetch(endpoint);
+						const values = await response.json();
+						const container = document.getElementById(containers[index]);
+						const totalSpan = document.getElementById(totals[index]);
+						container.innerHTML = values.map(({ key, value }) => `<div>${key}: ${value}</div>`).join('');
+
+						// Update total records
+						totalSpan.textContent = `(${values.length} records)`;
+				});
+
+				await fetchSSTableDetails();
+			};
+	</script>
+</body>
+</html>
